@@ -7,7 +7,6 @@ import (
 
 	"github.com/golang/glog"
 
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -100,8 +99,8 @@ func NewTriggerController(
 	controller.deploymentsSynced = deploymentInformer.Informer().HasSynced
 
 	deploymentInformer.Informer().AddIndexers(cache.Indexers{
-		"configMap": indexDeploymentsByTriggeringConfigMaps,
-		"secret":    indexDeploymentsByTriggeringSecrets,
+		"configMap": indexByConfigMaps,
+		"secret":    indexBySecrets,
 	})
 	controller.deploymentsIndex = deploymentInformer.Informer().GetIndexer()
 
@@ -126,50 +125,22 @@ func NewTriggerController(
 	return controller
 }
 
-func indexDeploymentsByTriggeringConfigMaps(obj interface{}) ([]string, error) {
-	var configs []string
-	d, ok := obj.(*appsv1.Deployment)
-	if !ok {
-		return configs, fmt.Errorf("object is not deployment")
-	}
-	annotations := d.GetAnnotations()
-	if len(annotations) == 0 {
-		return configs, nil
-	}
+func indexByConfigMaps(obj interface{}) ([]string, error) {
+	objMeta := meta.Accesor(obj)
+	annotations := objMeta.GetAnnotations()
 	if triggers, ok := annotations[triggerConfigMapsAnnotation]; ok {
-		configMaps := sets.NewString(strings.Split(triggers, ",")...)
-		for _, v := range d.Spec.Template.Spec.Volumes {
-			if v.ConfigMap != nil {
-				if configMaps.Has(v.ConfigMap.Name) {
-					configs = append(configs, v.ConfigMap.Name)
-				}
-			}
-		}
+		return sets.NewString(strings.Split(triggers, ",")...), nil
 	}
-	return configs, nil
+	return []string{}, nil
 }
 
-func indexDeploymentsByTriggeringSecrets(obj interface{}) ([]string, error) {
-	var configs []string
-	d, ok := obj.(*appsv1.Deployment)
-	if !ok {
-		return configs, fmt.Errorf("object is not deployment")
-	}
-	annotations := d.GetAnnotations()
-	if len(annotations) == 0 {
-		return configs, nil
-	}
+func indexBySecrets(obj interface{}) ([]string, error) {
+	objMeta := meta.Accesor(obj)
+	annotations := objMeta.GetAnnotations()
 	if triggers, ok := annotations[triggerSecretsAnnotation]; ok {
-		secrets := sets.NewString(strings.Split(triggers, ",")...)
-		for _, v := range d.Spec.Template.Spec.Volumes {
-			if v.Secret != nil {
-				if secrets.Has(v.Secret.SecretName) {
-					configs = append(configs, v.Secret.SecretName)
-				}
-			}
-		}
+		return sets.NewString(strings.Split(triggers, ",")...), nil
 	}
-	return configs, nil
+	return []string{}, nil
 }
 
 func (c *TriggerController) Run(threadiness int, stopCh <-chan struct{}) error {
