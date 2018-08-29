@@ -18,7 +18,6 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
-	appsv1client "k8s.io/client-go/kubernetes/typed/apps/v1"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -59,7 +58,6 @@ type TriggerController struct {
 	secretsLister v1.SecretLister
 	secretsSynced cache.InformerSynced
 
-	deploymentClient  appsv1client.DeploymentsGetter
 	deploymentsSynced  cache.InformerSynced
 	statefulSetsSynced cache.InformerSynced
 
@@ -88,9 +86,7 @@ func NewTriggerController(
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: controllerAgentName})
 
 	controller := &TriggerController{
-		client: kubeclientset,
-		// TODO(jacobstr): Remove this because we don't need it.
-		// deploymentClient:    kubeclientset.AppsV1(),
+		client:              kubeclientset,
 		workqueue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "data-version"),
 		recorder:            recorder,
 		secretsLister:       secretInformer.Lister(),
